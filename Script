@@ -13,7 +13,7 @@ local TrollingTab = Window:MakeTab({
 
 local ReplicatedStorage, CollectionService, Players = game:GetService("ReplicatedStorage"), game:GetService("CollectionService"), game:GetService("Players")
 
-if Players:FindFirstChild("zq2te") then
+--if Players:FindFirstChild("zq2te") then
 	local Camera = workspace.CurrentCamera
 	local LPlayer = Players.LocalPlayer
 	local PlayerGui = LPlayer.PlayerGui
@@ -240,5 +240,5 @@ if Players:FindFirstChild("zq2te") then
 			end)
 		end    
 	})
-end
+--end
 
