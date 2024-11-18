@@ -1,0 +1,244 @@
+if not game:IsLoaded() then
+	game.Loaded:Wait()
+end
+
+local OrionLib = loadstring(game:HttpGet(('https://raw.githubusercontent.com/shlexware/Orion/main/source')))()
+local Window = OrionLib:MakeWindow({Name = "Eternia | by zqrt", HidePremium = false, SaveConfig = false, ConfigFolder = "---", IntroEnabled = false})
+
+local TrollingTab = Window:MakeTab({
+	Name = "Trolling",
+	Icon = "rbxassetid://12389137652",
+	PremiumOnly = false
+})
+
+local ReplicatedStorage, CollectionService, Players = game:GetService("ReplicatedStorage"), game:GetService("CollectionService"), game:GetService("Players")
+
+if Players:FindFirstChild("zq2te") then
+	local Camera = workspace.CurrentCamera
+	local LPlayer = Players.LocalPlayer
+	local PlayerGui = LPlayer.PlayerGui
+	local Mouse = LPlayer:GetMouse()
+
+	local Lcharacter = LPlayer.Character
+	LPlayer.CharacterAdded:Connect(function(self)
+		Lcharacter = self 
+	end)
+
+	local function StopVelocity(Part: Part)
+		Part.AssemblyAngularVelocity = Vector3.new()
+		Part.AssemblyLinearVelocity = Vector3.new()
+	end
+
+	local function GrabItem(Item: Model)
+		Lcharacter.Humanoid.PlatformStand = true
+		repeat
+			for _, self: SelectionBox in pairs(Item:GetDescendants()) do
+				if self:IsA("SelectionBox") then
+					self.Visible = true
+					Lcharacter.Humanoid.PlatformStand = false
+					return true
+				end
+			end
+			local Root = Lcharacter.HumanoidRootPart
+			Root.CFrame = Item.PrimaryPart.CFrame
+			StopVelocity(Root)
+			ReplicatedStorage.Interaction.ClientIsDragging:FireServer(Item)
+			task.wait()
+		until Item.Parent == nil
+		Lcharacter.Humanoid.PlatformStand = false
+	end
+
+	local function GetPlayerItem(Part: Part)
+		if Part.Anchored ~= true then
+			local self = Part
+			repeat
+				if self:FindFirstChild("Owner") and self.Owner:FindFirstChild("OwnerString") then
+					return self
+				end
+				self = self.Parent
+			until self == workspace return nil
+		else
+			return nil
+		end
+	end
+
+	local function GetItemPrice(Item: Model)
+		if Item:FindFirstChild("BoxItemName") then
+			return ReplicatedStorage.ClientItemInfo[Item.BoxItemName.Value].Price.Value
+		else
+			return ReplicatedStorage.ClientItemInfo[Item.PurchasedBoxItemName.Value].Price.Value
+		end
+	end
+
+	local function DestroyBlacklistWalls()
+		for _, BlacklistWall in pairs(workspace.Effects:GetChildren()) do
+			if BlacklistWall.Name == "BlacklistWall" then
+				BlacklistWall:Destroy()
+			end
+		end
+	end
+
+	local function Purchase(ItemName: string, Quantity: number)
+		local IDs = {WoodRUs = 7, FurnitureStore = 8, CarStore = 9, ShackShop = 10, FineArt = 11, LogicStore = 12}
+
+		local AvailableItem: Model, Store: Model
+		local function WaitForItem()
+			for _, ShopItems: Folder in pairs(workspace.Stores:GetChildren()) do
+				if ShopItems.Name == "ShopItems" then
+					for _, Item: Model in pairs(ShopItems:GetChildren()) do
+						if Item:FindFirstChild("BoxItemName").Value == ItemName and Item:FindFirstChild("Owner").Value == nil then
+							for _, Part: Part in pairs(workspace:GetPartBoundsInBox(Item.PrimaryPart.CFrame, Item.PrimaryPart.Size)) do
+								local Value = Part
+								repeat
+									if Value.Parent:FindFirstChild("ShopItems") and Value.Name ~= "ShopItems" then
+										AvailableItem = Item
+										Store = Value
+										return
+									end
+									Value = Value.Parent
+								until Value == workspace
+							end
+						end
+					end
+				end
+			end
+			if AvailableItem == nil then
+				WaitForItem() task.wait()
+			end
+		end WaitForItem() GrabItem(AvailableItem)
+
+		if (LPlayer.leaderstats.Money.Value - GetItemPrice(AvailableItem)) < 0 then
+			OrionLib:MakeNotification({
+				Name = "Ooops",
+				Content = "Load the base before breaking other bases >:(",
+				Image = "rbxassetid://4632517055",
+				Time = 5
+			})
+			return nil
+		end
+
+		AvailableItem.PrimaryPart.CFrame = Store.Counter.CFrame
+		local FindCharacter, Dialog
+		for _, Character: Model in pairs(Store:GetChildren()) do
+			if Character:FindFirstChild("Humanoid") then
+				FindCharacter = Character
+			end
+		end
+		if not FindCharacter:FindFirstChild("Dialog") then
+			Dialog = Instance.new("Dialog", FindCharacter)
+		end
+		repeat
+			Lcharacter.HumanoidRootPart.CFrame = AvailableItem.PrimaryPart.CFrame + Vector3.new(0, AvailableItem.PrimaryPart.Size.Y)
+			task.spawn(function()
+				local Args = {
+					[1] = {
+						["ID"] = IDs[Store.Name],
+						["Character"] = FindCharacter,
+						["Name"] = FindCharacter.Name,
+						["Dialog"] = FindCharacter.Dialog
+					},
+					[2] = "ConfirmPurchase"
+				}
+				ReplicatedStorage.NPCDialog.PlayerChatted:InvokeServer(unpack(Args))
+			end)
+			task.wait()
+		until AvailableItem:FindFirstChild("PurchasedBoxItemName")
+		if Dialog ~= nil then
+			Dialog:Destroy()
+		end
+		GrabItem(AvailableItem)
+		return AvailableItem
+	end
+
+	local FlingInProcessing = false
+	local function FlingItem(Item: Model)
+		if FlingInProcessing == false then
+			FlingInProcessing = true
+			local OriginCFrame = Lcharacter.HumanoidRootPart.CFrame
+			local CameraPart = Instance.new("Part", workspace)
+			CameraPart.CFrame = Lcharacter.Head.CFrame
+			CameraPart.Transparency = 1
+			CameraPart.CanCollide = false
+			CameraPart.Anchored = true
+			Camera.CameraSubject = CameraPart
+
+			DestroyBlacklistWalls()
+			local FlingPart: Model = Purchase("Bed2")
+			if FlingPart ~= nil then
+				FlingPart = FlingPart.PrimaryPart
+				FlingPart.CanCollide = false
+
+				local Highlight = Instance.new("Highlight", FlingPart.SelectionBox)
+				Highlight.Adornee = Item
+				Highlight.FillColor = Color3.new(0, 1, 1)
+
+				local PrimaryPart = Item.PrimaryPart
+				if Item:FindFirstChild("WoodSection") then
+					PrimaryPart = Item.WoodSection
+				end
+
+				FlingPart.CFrame = PrimaryPart.CFrame
+				FlingPart.CanCollide = false
+				FlingPart.Transparency = 1
+				FlingPart.SelectionBox.Visible = false
+
+				local BodyAngularVelocity = Instance.new("BodyAngularVelocity", FlingPart)
+				BodyAngularVelocity.MaxTorque = Vector3.new(math.huge, math.huge, math.huge)
+				BodyAngularVelocity.AngularVelocity = Vector3.new(0, 5000)
+
+				local Attachment = Instance.new("Attachment", FlingPart)
+				local AlignPosition = Instance.new("AlignPosition", Attachment)
+				AlignPosition.Mode = Enum.PositionAlignmentMode.OneAttachment
+				AlignPosition.Attachment0 = Attachment
+				AlignPosition.MaxForce = math.huge
+				AlignPosition.Responsiveness = 200
+
+				local function Fling()
+					task.spawn(function()
+						while true do
+							if FlingPart and PrimaryPart then
+								local HasSelectionBox = false
+								for _, self: SelectionBox in pairs(FlingPart:GetDescendants()) do
+									if self:IsA("SelectionBox") then
+										HasSelectionBox = true
+									end
+								end
+								if HasSelectionBox == false then
+									FlingPart:Destroy()
+									return
+								else
+									AlignPosition.Position = PrimaryPart.Position
+								end
+							else
+								return
+							end
+							task.wait()
+						end
+					end)
+				end
+				Fling()
+			end
+			Lcharacter.HumanoidRootPart.CFrame = OriginCFrame
+			CameraPart:Destroy()
+			Camera.CameraSubject = Lcharacter.Humanoid
+			FlingInProcessing = false
+		end
+	end
+
+	TrollingTab:AddButton({
+		Name = "Fling target item",
+		Callback = function()
+			local Click
+			Click = Mouse.Button1Down:Connect(function()
+				DestroyBlacklistWalls()
+
+				local Target = GetPlayerItem(Mouse.Target)
+				if Target ~= nil and Target:FindFirstChild("Owner") and Target.Owner:FindFirstChild("OwnerString") then
+					Click:Disconnect()
+					FlingItem(Target)
+				end
+			end)
+		end    
+	})
+end
+
